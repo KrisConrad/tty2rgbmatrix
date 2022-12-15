@@ -32,45 +32,32 @@
 
 AnimatedGIF gif;
 SPIClass *spi = NULL;
+
 String currentCORE = "";         // Buffer String for Text change detection
-char newCOREArray[30]="";        // Array of char needed for some functions, see below "newCORE.toCharArray"
-
-/* ----------------- Colors ----------------- */
-uint16_t myBLACK = dma_display->color565(0, 0, 0);
-uint16_t myWHITE = dma_display->color565(255, 255, 255);
-uint16_t myRED = dma_display->color565(255, 0, 0);
-uint16_t myGREEN = dma_display->color565(0, 255, 0);
-uint16_t myBLUE = dma_display->color565(0, 0, 255);
-
+String newCORE = "MENU";         // Buffer String for Text change detection
 
 void setup() {
   Serial.begin(115200);
   Serial.println();
 
+  initializeDisplay();
   mountSDCard();
 
   // initialize gif object
   gif.begin(LITTLE_ENDIAN_PIXELS);
 
-  initializeDisplay();
-
   runStartupPattern();
-
-  gif.begin(LITTLE_ENDIAN_PIXELS);
 
   // setup initial core to default to menu
   currentCORE = "NULL";
-  coreSelected("MENU");
+  coreSelected(newCORE);
 } /* void setup() */
 
 
 void loop() {
-  String newCore = readNewCore();
-
-   delay(10);
-   Serial.printf("%s is oldcore, %s is newcore\n", String(currentCORE), String(newCore));
-
-  coreSelected(newCore);
+  readNewCore();
+  coreSelected(newCORE);
+  delay(500);
 
 } /* void loop() */
 
@@ -85,14 +72,14 @@ void mountSDCard() {
   delay(500);
 
   if (!SD.begin(HSPI_CS, *spi)) {
-    Serial.println("Card Mount Failed");
+    displayText("Card Mount Failed");
     return;
   }
 
   uint8_t cardType = SD.cardType();
 
   if (cardType == CARD_NONE) {
-    Serial.println("No SD card attached");
+    displayText("No SD card attached");
     return;
   }
 
@@ -136,9 +123,7 @@ void initializeDisplay() {
     mxconfig.gpio.g2 = 13;
   }
 
-  if (IS_FM6126A) { 
-    mxconfig.driver = HUB75_I2S_CFG::FM6126A;
-  }
+  mxconfig.driver = DRIVER;
 
   dma_display = new MatrixPanel_I2S_DMA(mxconfig);
   dma_display->begin();
@@ -148,99 +133,89 @@ void initializeDisplay() {
 
 void runStartupPattern() {
   //screen startup test (watch for dead or misfiring pixels)
-  dma_display->fillScreen(myBLACK);
-  delay(500);
-  dma_display->fillScreen(myRED);
-  delay(500);
-  dma_display->fillScreen(myGREEN);
-  delay(500);
-  dma_display->fillScreen(myBLUE);
-  delay(500);
-  dma_display->fillScreen(myWHITE);
-  delay(500);
-  dma_display->clearScreen();
-  delay(500);
 
-  dma_display->setCursor(0, 0);
-  dma_display->println("MiSTer FPGA");
+  /* ----------------- Colors ----------------- */
+  uint16_t myBLACK = dma_display->color565(0, 0, 0);
+  uint16_t myWHITE = dma_display->color565(128, 128, 128);
+  uint16_t myRED = dma_display->color565(128, 0, 0);
+  uint16_t myGREEN = dma_display->color565(0, 128, 0);
+  uint16_t myBLUE = dma_display->color565(0, 0, 128);
+  
+  dma_display->fillScreen(myRED);
+  delay(1000);
+  dma_display->fillScreen(myGREEN);
+  delay(1000);
+  dma_display->fillScreen(myBLUE);
+  delay(1000);
+  dma_display->fillScreen(myWHITE);
+  delay(1000);
+
+  displayText("MiSTer FPGA");
   delay(1000);
 
   dma_display->fillScreen(myBLACK);
 }
 
+String animatedPath = "";
+String staticPath = "";
+bool isAnimated = false;
+bool hasStarted = false;
+
 void coreSelected(String newCore) {
+  // Proceed only if it's not the first transmission
+  if (newCore == currentCORE || newCore.endsWith("QWERTZ")) return;
+  
+  Serial.printf("CORE is %s \n", newCore);
 
-  // Proceed only if Core Name changed and it's not th efirst transmission
-  if (newCore != currentCORE && !newCore.endsWith("QWERTZ")) {
-    Serial.printf("Running a check because %s is oldcore, %s is newcore\n", String(currentCORE), String(newCore));
-
+  if (newCore != currentCORE) {
+    dma_display->clearScreen();
+    hasStarted = false;
+    
     String letter = newCore.substring(0, 1);
     letter.toUpperCase();
     String fileName = newCore + ".gif";
     
-    String animatedPath =  "/animated/" + letter + "/" + fileName;
-    char animatedFilePath[256];
-    animatedPath.toCharArray(animatedFilePath, animatedPath.length()+1);
-
-    String staticPath = "/static/" + letter + "/" + fileName;
-    char staticFilePath[256];
-    staticPath.toCharArray(staticFilePath, staticPath.length()+1);
-
-    if (SD.exists(animatedFilePath)) {
-      showGIF(animatedFilePath, true);
-    } else if (SD.exists(staticFilePath)) {
-      showGIF(staticFilePath, false);
-    } else {
-      Serial.printf("IMAGE FILE FOR %s NOT FOUND!\n", newCore);
-      dma_display->clearScreen();
-      dma_display->setCursor(0, 0);
-      dma_display->print(newCore);
-      dma_display->println(" not found");
-      delay(3000);
-    }
-
-  } // end newCORE!=currentCORE
-
+    animatedPath =  "/animated/" + letter + "/" + fileName;
+    staticPath = "/static/" + letter + "/" + fileName;
+  }
+  
   currentCORE = newCore;
-}
 
-void listDir(fs::FS &fs, const char * dirname, uint8_t levels) {
-  Serial.printf("Listing directory: %s\n", dirname);
+  if (hasStarted && !isAnimated) return;
+  hasStarted = true;
 
-  File root = fs.open(dirname);
-  if (!root) {
-    Serial.println("Failed to open directory");
-    return;
-  }
-  if (!root.isDirectory()) {
-    Serial.println("Not a directory");
-    return;
-  }
+  char animatedFilePath[256];
+  animatedPath.toCharArray(animatedFilePath, animatedPath.length()+1);
 
-  File file = root.openNextFile();
-  while (file) {
-    if (file.isDirectory()) {
-      Serial.print("  DIR : ");
-      Serial.println(file.name());
-      if (levels) {
-        listDir(fs, file.name(), levels - 1);
-      }
-    } else {
-      Serial.print("  FILE: ");
-      Serial.print(file.name());
-      Serial.print("  SIZE: ");
-      Serial.println(file.size());
-    }
-    file = root.openNextFile();
+  char staticFilePath[256];
+  staticPath.toCharArray(staticFilePath, staticPath.length()+1);
+  
+  if (SD.exists(animatedFilePath)) {
+    isAnimated = true;
+    showGIF(animatedFilePath, true);
+  } else if (SD.exists(staticFilePath)) {
+    isAnimated = false;
+    showGIF(staticFilePath, false);
+  } else {
+    isAnimated = false;
+    Serial.printf("IMAGE FILE FOR %s NOT FOUND!\n", newCore);
+    displayText(newCore + " was not found");
+    delay(3000);
   }
 }
 
-String readNewCore() {
+void displayText(String text) {
+    dma_display->clearScreen();
+    dma_display->setTextSize(2);
+    dma_display->setCursor(0, 0);
+    dma_display->print(text);
+    Serial.println(text);
+}
+
+void readNewCore() {
   if (Serial.available()) {
   // Read string from serial until NewLine "\n" (from MiSTer's echo command) is detected or timeout (1000ms) happens.
-    return Serial.readStringUntil('\n');
-  } else {
-    return currentCORE;
+    newCORE = Serial.readStringUntil('\n');
   }
 }
 
@@ -251,31 +226,31 @@ void showGIF(char *name, bool animated) {
     int canvasWidth = gif.getCanvasWidth();
     int canvasHeight = gif.getCanvasHeight();
     
-    x_offset = max(0, (MATRIX_WIDTH - canvasWidth) / 2);
-    y_offset = max(0, (MATRIX_HEIGHT - canvasHeight) / 2);
+    xPos = max(0, (totalWidth - canvasWidth) / 2);
+    yPos = max(0, (totalHeight - canvasHeight) / 2);
 
-    Serial.printf("Successfully opened GIF; Canvas size = %d x %d\n", canvasWidth, canvasHeight);
     Serial.flush();
     
     if (animated)  {
       Serial.println("animated gif flag found, playing whole gif");
-      while(gif.playFrame(true, NULL)) {
-        //keep on playing unless...
-        if (readNewCore() != currentCORE) break;
+      bool running = true;
+      while(running) {
+        while(gif.playFrame(true, NULL)) {
+         //keep on playing unless...
+          readNewCore();
+          if (newCORE != currentCORE) {
+            running = false;
+            break;
+          }
+       }
       }
     } else  {
       Serial.println("static gif flag found, playing 1st frame of gif");
-      while (!gif.playFrame(true, NULL)) { // leaving this break in here incase i need it for interrupting the the current playing gif in a future rev
-        
-        // play first frame of non-animated gif and wait 10 seconds  
-        if ( (millis() - start_tick) > 10000) break;
-        Serial.print(".");
-        if (readNewCore() != currentCORE) break;
-        gif.reset();
-      }
+      gif.playFrame(true, NULL);
+      gif.reset();
     }
-    Serial.println("closing gif file");
-    gif.close();
   }
+  Serial.println("closing gif file");
+  gif.close();
 
 } /* ShowGIF() */

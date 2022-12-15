@@ -1,12 +1,12 @@
 #include <AnimatedGIF.h>                      //v1.4.7 by larry bank verifed to work
-
+MatrixPanel_I2S_DMA *dma_display = nullptr;
 
 // ----------------- ANIMATEDGIF LIBRARY STUFF -----------
 
 // NOTE: x & y offsets are never used, x & y positions are never changed
 // Test displaying a larger and smaller gif than the display size and combining these values
-int x_offset, y_offset;
 int16_t xPos = 0, yPos = 0; // Top-left pixel coord of GIF in matrix space
+File f;
 
 
 // ----------------- GIF DRAW Gif Draw Functions -------------------------
@@ -89,7 +89,6 @@ void GIFDraw(GIFDRAW *pDraw) {
       }
     }
   } else {                           //does not have transparency
-    s = pDraw->pPixels;
     // Translate the 8-bit pixels through the RGB565 palette (already byte reversed)
     for (x = 0; x < pDraw->iWidth; x++) 
       usTemp[x] = usPalette[*s++];
@@ -100,7 +99,7 @@ void GIFDraw(GIFDRAW *pDraw) {
 void * GIFOpenFile(const char *fname, int32_t *pSize) {
   Serial.print("Playing gif: ");
   Serial.println(fname);
-  File f = FILESYSTEM.open(fname);
+  f = SD.open(fname);
   if (f) {
     *pSize = f.size();
     return (void *)&f;
@@ -109,7 +108,7 @@ void * GIFOpenFile(const char *fname, int32_t *pSize) {
 } /* GIFOpenFile() */
 
 void GIFCloseFile(void *pHandle) {
-  File *f = static_cast<File *>(pHandle);
+  File  *f = static_cast<File *>(pHandle);
   if (f != NULL)
      f->close();
 } /* GIFCloseFile() */

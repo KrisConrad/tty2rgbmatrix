@@ -1,31 +1,36 @@
-#define FILESYSTEM SD
 
-MatrixPanel_I2S_DMA *dma_display = nullptr;
+/* ----------------- RGB MATRIX CONFIG ----------------- */
+
+const int panelResX = 64;        // Number of pixels wide of each INDIVIDUAL panel module.
+const int panelResY = 64;        // Number of pixels tall of each INDIVIDUAL panel module.
+const int panels_in_X_chain = 4; // Total number of panels in X
+const int panels_in_Y_chain = 1; // Total number of panels in Y
+
+const int totalWidth  = panelResX * panels_in_X_chain;  //used in span function
+const int totalHeight = panelResY * panels_in_Y_chain;  //used in span function
 
 /* 
  *  May or may not need to be changed to 'false' depending on your matrix
  * Example of what needing it looks like:
  * https://github.com/mrfaptastic/ESP32-HUB75-MatrixPanel-I2S-DMA/issues/134#issuecomment-866367216 
 */
-bool CLKPHASE = true;
+bool CLKPHASE = false;
 
-// If you're using panels based on the FM6126A chip, change this value to 'true'
-bool IS_FM6126A = false;
-
-// Some panels made need the green and blue pins swapped
+// Some panels may need the green and blue pins swapped
 bool SWAP_GREEN_BLUE = false;
 
-
-/* ----------------- RGB MATRIX CONFIG ----------------- */
-// more panel setup is found in the void setup() function!
-
-const int panelResX = 64;        // Number of pixels wide of each INDIVIDUAL panel module.
-const int panelResY = 32;        // Number of pixels tall of each INDIVIDUAL panel module.
-const int panels_in_X_chain = 2; // Total number of panels in X
-const int panels_in_Y_chain = 1; // Total number of panels in Y
-
-const int totalWidth  = panelResX * panels_in_X_chain;  //used in span function
-const int totalHeight = panelResY * panels_in_Y_chain;  //used in span function
+/* 
+ *  The driver chip used in your matrix panels
+ *  
+ *  Options:
+ *  HUB75_I2S_CFG::SHIFTREG // default value
+ *  HUB75_I2S_CFG::FM6124
+ *  HUB75_I2S_CFG::FM6126A
+ *  HUB75_I2S_CFG::ICN2038S
+ *  HUB75_I2S_CFG::MBI5124
+ *  HUB75_I2S_CFG::SM5266P
+*/
+#define DRIVER HUB75_I2S_CFG::SHIFTREG
 
 
 /* ----------------- Micro SD Card Module Pinout ----------------- */
