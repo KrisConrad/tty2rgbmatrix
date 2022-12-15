@@ -18,6 +18,7 @@ bool CLKPHASE = false;
 
 // Some panels may need the green and blue pins swapped
 bool SWAP_GREEN_BLUE = false;
+String DEFAULT_CORE = "MENU";
 
 /* 
  *  The driver chip used in your matrix panels

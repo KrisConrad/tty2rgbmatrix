@@ -196,6 +196,9 @@ void coreSelected(String newCore) {
   } else if (SD.exists(staticFilePath)) {
     isAnimated = false;
     showGIF(staticFilePath, false);
+  } else if (newCore != DEFAULT_CORE) {
+    newCORE = DEFAULT_CORE;
+    coreSelected(DEFAULT_CORE);
   } else {
     isAnimated = false;
     Serial.printf("IMAGE FILE FOR %s NOT FOUND!\n", newCore);
