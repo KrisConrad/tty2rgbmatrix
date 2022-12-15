@@ -197,12 +197,13 @@ void coreSelected(String newCore) {
     isAnimated = false;
     showGIF(staticFilePath, false);
   } else if (newCore != DEFAULT_CORE) {
+    Serial.printf("IMAGE FILE FOR %s NOT FOUND!\n", newCore);
     newCORE = DEFAULT_CORE;
     coreSelected(DEFAULT_CORE);
   } else {
     isAnimated = false;
     Serial.printf("IMAGE FILE FOR %s NOT FOUND!\n", newCore);
-    displayText(newCore + " was not found");
+    displayText("Default gif was not found");
     delay(3000);
   }
 }
